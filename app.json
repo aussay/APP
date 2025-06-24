@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "Puzzleverse",
+    "slug": "patriot-puzzles",
+    "owner": "healtyrich9",
+    "version": "1.0.0",
+    "runtimeVersion": "1.0.0",
+    "updates": {
+      "enabled": false,
+      "url": "https://u.expo.dev/1b67dc9b-8146-4c88-bda0-f6cc2ffc0da2"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "1b67dc9b-8146-4c88-bda0-f6cc2ffc0da2"
+      }
+    },
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "ios": {
+      "bundleIdentifier": "com.healtyrich9.patriotpuzzles",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    }
+  }
+}
