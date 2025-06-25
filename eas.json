@@ -1,26 +1,11 @@
 {
   "cli": {
-    "version": ">= 16.12.0",
-    "appVersionSource": "remote"
+    "version": ">= 16.12.0"
   },
   "build": {
     "development": {
       "developmentClient": true,
       "distribution": "internal"
-    },
-    "preview": {
-      "distribution": "internal"
-    },
-    "production": {
-      "autoIncrement": true
-    },
-    "adhoc": {
-      "ios": {
-        "distribution": "internal"
-      }
     }
-  },
-  "submit": {
-    "production": {}
   }
 }
