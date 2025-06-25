@@ -1,7 +1,7 @@
 # Project README
 
 ## Overview
-This is a production-ready, optimized React Native puzzle app featuring multiple games, AI analysis, archive access, analytics, and a pixel-perfect, accessible UI.
+This s a production-ready, optimized React Native puzzle app featuring multiple games, AI analysis, archive access, analytics, and a pixel-perfect, accessible UI.
 
 ## Features
 - Multiple puzzle games (Word Wise, Letter Logic, Puzzle Grid, Link Up, Insight)
