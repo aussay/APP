@@ -19,7 +19,7 @@
       "android"
     ],
     "ios": {
-      "bundleIdentifier": "com.healtyrich9.patriotpuzzles",
+      "bundleIdentifier": "com.n2263216.puzzleverse",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
