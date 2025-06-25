@@ -2,16 +2,16 @@
   "expo": {
     "name": "Puzzleverse",
     "slug": "app",
-    "owner": "healtyrich9",
+    "owner": "n2263216",
     "version": "1.0.0",
     "runtimeVersion": "1.0.0",
     "updates": {
       "enabled": false,
-      "url": "https://u.expo.dev/a27cfc2a-b522-40c7-9a43-3262bdf643df"
+      "url": "https://u.expo.dev/50b25dd7-1193-4aa5-b8dc-029fbc8b3151"
     },
     "extra": {
       "eas": {
-        "projectId": "a27cfc2a-b522-40c7-9a43-3262bdf643df"
+        "projectId": "50b25dd7-1193-4aa5-b8dc-029fbc8b3151"
       }
     },
     "platforms": [
