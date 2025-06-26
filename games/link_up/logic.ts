@@ -3,8 +3,9 @@ import { linkUpArchive2025 } from './archive/2025';
 
 // Remove sampleLinkUpPuzzle and use a real puzzle from the archive
 export function getTodayLinkUpPuzzle(): LinkUpPuzzle {
-  // For demo, use the first puzzle; in production, select by date
-  return linkUpArchive2025[0];
+  const todayPuzzle = getLinkUpForDate(new Date());
+  // Fallback to the first puzzle if today's isn't found
+  return todayPuzzle || linkUpArchive2025[0];
 }
 
 export function initializeLinkUpState(puzzle: LinkUpPuzzle = getTodayLinkUpPuzzle(), maxMistakes: number = 4): LinkUpState {
@@ -104,3 +105,98 @@ export function getLinkUpArchiveUpToDate(date: Date) {
   const index = Math.min(Math.floor((date.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)), 364);
   return linkUpArchive2025.slice(0, index + 1);
 }
+
+// --- Game State Persistence ---
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const LINK_UP_SAVE_KEY_PREFIX = 'LinkUp_SavedState_';
+
+// Define what parts of the state to save.
+// `puzzle` is not saved as it's part of the puzzle definition loaded by ID.
+// `remainingItems` can be derived.
+interface LinkUpSavedState {
+  puzzleId: string;
+  selectedItems: LinkUpItem[];
+  foundCategories: { categoryId: string; items: LinkUpItem[] }[];
+  mistakesMade: number;
+  isGameOver: boolean;
+  didWin: boolean;
+}
+
+export const saveLinkUpState = async (puzzleId: string, state: LinkUpState): Promise<void> => {
+  if (state.isGameOver && state.didWin) { // Game won, clear saved state
+    await AsyncStorage.removeItem(`${LINK_UP_SAVE_KEY_PREFIX}${puzzleId}`);
+    // console.log(`Cleared saved state for completed Link Up puzzle: ${puzzleId}`);
+    return;
+  }
+
+  // Avoid saving if no interaction yet, unless game is over (e.g. lost on first try)
+  if (state.selectedItems.length === 0 && state.foundCategories.length === 0 && state.mistakesMade === 0 && !state.isGameOver) {
+    // console.log(`No progress to save for Link Up puzzle: ${puzzleId}`);
+    return;
+  }
+
+  try {
+    const stateToSave: LinkUpSavedState = {
+      puzzleId: puzzleId, // Or state.puzzle.id
+      selectedItems: state.selectedItems,
+      foundCategories: state.foundCategories,
+      mistakesMade: state.mistakesMade,
+      isGameOver: state.isGameOver,
+      didWin: state.didWin,
+    };
+    const jsonValue = JSON.stringify(stateToSave);
+    await AsyncStorage.setItem(`${LINK_UP_SAVE_KEY_PREFIX}${puzzleId}`, jsonValue);
+    // console.log(`Link Up state saved for puzzle: ${puzzleId}`);
+  } catch (e) {
+    console.error('Failed to save Link Up state.', e);
+  }
+};
+
+export const loadLinkUpState = async (puzzleId: string, currentPuzzleData: LinkUpPuzzle): Promise<LinkUpState | null> => {
+  try {
+    const jsonValue = await AsyncStorage.getItem(`${LINK_UP_SAVE_KEY_PREFIX}${puzzleId}`);
+    if (jsonValue != null) {
+      const saved: LinkUpSavedState = JSON.parse(jsonValue);
+
+      if (saved.puzzleId !== puzzleId) {
+        console.warn(`Loaded Link Up state for puzzle ${saved.puzzleId} but expected ${puzzleId}. Discarding.`);
+        await AsyncStorage.removeItem(`${LINK_UP_SAVE_KEY_PREFIX}${puzzleId}`);
+        return null;
+      }
+
+      // If game was saved as over but not won (i.e. lost), re-initialize but keep mistakes for display?
+      // Or just let it load as game over. Current logic loads it as is.
+      // If it was saved as "game over and won", it should have been cleared by saveLinkUpState.
+      // If it's loaded as "game over and won", it means it wasn't cleared, so clear it now.
+      if (saved.isGameOver && saved.didWin) {
+        await AsyncStorage.removeItem(`${LINK_UP_SAVE_KEY_PREFIX}${puzzleId}`);
+        return null; // Treat as no saved state, so game starts fresh
+      }
+
+      // console.log(`Loaded Link Up state for puzzle: ${puzzleId}`);
+      // Reconstruct remainingItems based on foundCategories and all items in currentPuzzleData
+      let remainingItems = [...currentPuzzleData.items];
+      if (saved.foundCategories) {
+        const foundItemIds = new Set<string>();
+        saved.foundCategories.forEach(fc => fc.items.forEach(item => foundItemIds.add(item.id)));
+        remainingItems = currentPuzzleData.items.filter(item => !foundItemIds.has(item.id));
+      }
+
+      const rehydratedState: LinkUpState = {
+        puzzle: currentPuzzleData,
+        selectedItems: saved.selectedItems || [],
+        foundCategories: saved.foundCategories || [],
+        mistakesMade: saved.mistakesMade || 0,
+        maxMistakes: currentPuzzleData.maxMistakes || 4, // Get from puzzle data or default
+        isGameOver: saved.isGameOver || false,
+        didWin: saved.didWin || false,
+        remainingItems,
+      };
+      return rehydratedState;
+    }
+  } catch (e) {
+    console.error('Failed to load Link Up state.', e);
+  }
+  return null;
+};

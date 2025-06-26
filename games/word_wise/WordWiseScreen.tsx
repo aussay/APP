@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Button, SafeAreaView, ScrollView, Animated, AppState as RNAppState, ActivityIndicator, FlatList, TouchableOpacity } from 'react-native';
-import { initializeWordWiseState, processGuess, addLetterToGuess, removeLetterFromGuess, getWordWiseForDate } from './logic';
+import { initializeWordWiseState, processGuess, addLetterToGuess, removeLetterFromGuess, getWordWiseForDate, loadWordWiseState, saveWordWiseState, clearSavedWordWiseState } from './logic'; // Assuming load/save state functions are in logic
 import { WordWiseState, LetterFeedback, Guess } from './types';
 import { AITriggerType, AIResponse } from '../../ai/types';
 import { GameKey } from '../../types/statistics';
-import { finalizeGameSession, markDailyChallengeCompleted, updateDailyStreak, updateGameStreak, loadStatistics, StatsUpdateResult } from '../../store/statisticsService'; // Added updateGameStreak
+import { finalizeGameSession, markDailyChallengeCompleted, updateDailyStreak, updateGameStreak, loadStatistics, StatsUpdateResult, hasDailyChallengeBeenCompleted } from '../../store/statisticsService'; // Added hasDailyChallengeBeenCompleted
 import { getDailyWordWiseChallengeKey } from '../../utils/dailyChallengeHelper';
 import { RouteProp, useRoute, useNavigation, useIsFocused } from '@react-navigation/native';
 import { RootStackParamList } from '../../navigation/AppNavigator';
@@ -89,9 +90,9 @@ const WordWiseScreen: React.FC = () => {
         const gameModeForLoad = 'classic';
 
         if (isDailyChallenge) {
-          const completed = await markDailyChallengeCompleted(dailyChallengeKeyForLoad);
-          setIsDailyCompletedToday(completed);
-          if (completed) {
+          const alreadyCompleted = await hasDailyChallengeBeenCompleted(dailyChallengeKeyForLoad);
+          setIsDailyCompletedToday(alreadyCompleted);
+          if (alreadyCompleted) {
             loadedSt = initializeWordWiseState(undefined, undefined, dailyWordFromParams, 'classic', undefined);
             if(loadedSt) {
               loadedSt.isGameOver = true; loadedSt.didWin = true;

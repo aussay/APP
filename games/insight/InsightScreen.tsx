@@ -17,11 +17,12 @@ import { generateInsightShareMessage, shareGameResult } from '../../utils/sharin
 import { getAttributionForDate } from '../../utils/game-attribution';
 
 const InsightScreen: React.FC = () => {
-  const currentPuzzleId = 'today';
-  const defaultInitialState = initializeInsightState(getTodayInsightPuzzle());
+  // const currentPuzzleId = 'today'; // This will be dynamic based on currentPuzzle.id
+  const [currentPuzzle, setCurrentPuzzle] = useState(() => getTodayInsightPuzzle()); // Initialize with today's puzzle
+  const defaultInitialState = initializeInsightState(currentPuzzle);
 
   const [selectedArchiveIndex, setSelectedArchiveIndex] = useState<number | null>(null);
-  const [currentPuzzle, setCurrentPuzzle] = useState(getTodayInsightPuzzle());
+  // currentPuzzle is now the single source of truth for the puzzle data
   const [gameState, setGameState] = useState<InsightGameState | null>(null);
   const [isLoadingState, setIsLoadingState] = useState(true);
   const [scoreFeedback, setScoreFeedback] = useState<string>('');
@@ -43,35 +44,47 @@ const InsightScreen: React.FC = () => {
 
   useEffect(() => {
     const attemptLoadState = async () => {
-      if (isFocused) {
+      if (isFocused && currentPuzzle) { // Depend on currentPuzzle
         setIsLoadingState(true);
-        const loadedState = await loadInsightState(currentPuzzleId, getTodayInsightPuzzle());
+        const puzzleIdToLoad = currentPuzzle.id || `insight_date_${currentPuzzle.title.replace(/\s+/g, '_')}`; // Use actual puzzle ID
+        const loadedState = await loadInsightState(puzzleIdToLoad, currentPuzzle);
         if (loadedState) {
           setGameState(loadedState);
           if (!loadedState.isComplete) setGameStartTime(Date.now()); else setGameStartTime(null);
         } else {
-          const newGame = initializeInsightState(getTodayInsightPuzzle());
+          const newGame = initializeInsightState(currentPuzzle);
           setGameState(newGame); setGameStartTime(Date.now());
         }
         setIsLoadingState(false);
       }
     };
     attemptLoadState();
-  }, [currentPuzzleId, isFocused]);
+  }, [currentPuzzle, isFocused]); // React to currentPuzzle changes
 
   useEffect(() => {
-    if (isLoadingState || !gameState) return;
+    if (isLoadingState || !gameState || !currentPuzzle) return; // Ensure currentPuzzle
     const saveCurrentState = () => {
-      if (gameState && !gameState.isComplete) saveInsightState(gameState);
-      else if (gameState && gameState.isComplete) clearSavedInsightState(currentPuzzleId);
+      if (gameState) {
+        const puzzleIdToSave = currentPuzzle.id || `insight_date_${currentPuzzle.title.replace(/\s+/g, '_')}`;
+        if (!gameState.isComplete) {
+          saveInsightState(gameState); // saveInsightState now takes the full state which includes puzzle.id
+        } else {
+          clearSavedInsightState(puzzleIdToSave);
+        }
+      }
     };
     const subscription = RNAppState.addEventListener('change', nextAppState => {
       if (appState.current.match(/inactive|background/) && nextAppState === 'active') {}
-      else if (appState.current === 'active' && nextAppState.match(/inactive|background/)) saveCurrentState();
+      else if (appState.current === 'active' && nextAppState.match(/inactive|background/)) {
+        saveCurrentState();
+      }
       appState.current = nextAppState;
     });
-    return () => { subscription.remove(); saveCurrentState(); };
-  }, [gameState, currentPuzzleId, isLoadingState]);
+    return () => {
+      subscription.remove();
+      saveCurrentState();
+    };
+  }, [gameState, currentPuzzle, isLoadingState]); // React to currentPuzzle changes
 
   useEffect(() => {
     if (isLoadingState || !gameState) return;
@@ -167,10 +180,11 @@ const InsightScreen: React.FC = () => {
   const today = new Date();
   const dateStr = today.toISOString().slice(0, 10);
   const { writer, editor } = getAttributionForDate(dateStr);
-  const dailyPuzzle = getInsightForDate(selectedArchiveIndex !== null ? new Date(2025, 0, 1 + selectedArchiveIndex) : today);
-  const archiveList: any[] = [];
-  const isUnlocked = (index: number) => {
+  // dailyPuzzle state is managed by currentPuzzle now
+  const archiveList = getInsightArchiveUpToDate(today); // Populate archiveList
+  const isUnlocked = (index: number) => { // Ensure this index matches how archiveList is structured if it's not full year
     const today = new Date();
+    // Assuming archiveList contains puzzles from Jan 1, 2025 onwards
     const archiveDate = new Date(2025, 0, 1 + index);
     return archiveDate <= today;
   };

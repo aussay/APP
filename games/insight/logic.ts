@@ -9,7 +9,9 @@ import {
 import { insightArchive2025 } from './archive/2025';
 
 export function getTodayInsightPuzzle(): InsightPuzzle {
-  return insightArchive2025[0];
+  const todayPuzzle = getInsightForDate(new Date());
+  // Fallback to the first puzzle if today's isn't found
+  return todayPuzzle || insightArchive2025[0];
 }
 
 export function initializeInsightState(puzzle?: InsightPuzzle): InsightGameState {

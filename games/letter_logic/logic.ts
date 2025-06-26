@@ -3,8 +3,9 @@ import { letterLogicArchive2025 } from './archive/2025';
 
 // Remove sampleLetterLogicPuzzle and use a real puzzle from the archive
 export function getTodayLetterLogicPuzzle(): LetterLogicPuzzle {
-  // For demo, use the first puzzle; in production, select by date
-  return letterLogicArchive2025[0];
+  const todayPuzzle = getLetterLogicForDate(new Date());
+  // Fallback to the first puzzle if today's isn't found (e.g., archive incomplete or date issue)
+  return todayPuzzle || letterLogicArchive2025[0];
 }
 
 export function initializeLetterLogicState(puzzle: LetterLogicPuzzle = getTodayLetterLogicPuzzle()): LetterLogicState {
@@ -121,3 +122,79 @@ export function getLetterLogicArchiveUpToDate(date: Date) {
   const index = Math.min(Math.floor((date.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)), 364);
   return letterLogicArchive2025.slice(0, index + 1);
 }
+
+// --- Game State Persistence ---
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const LETTER_LOGIC_SAVE_KEY_PREFIX = 'LetterLogic_SavedState_';
+
+interface LetterLogicSavedState {
+  puzzleId: string; // To identify which puzzle this state belongs to
+  foundWords: string[];
+  currentInput: string;
+  score: number;
+}
+
+export const saveLetterLogicState = async (puzzleId: string, state: LetterLogicState): Promise<void> => {
+  // Don't save if all words are found (game is complete)
+  if (state.foundWords.length === state.puzzle.validWords.length) {
+    await AsyncStorage.removeItem(`${LETTER_LOGIC_SAVE_KEY_PREFIX}${puzzleId}`);
+    console.log(`Cleared saved state for completed Letter Logic puzzle: ${puzzleId}`);
+    return;
+  }
+
+  // Only save if there's some progress
+  if (state.foundWords.length === 0 && state.currentInput === '' && state.score === 0) {
+    // console.log(`No progress to save for Letter Logic puzzle: ${puzzleId}`); // Optional: avoid saving empty states
+    // await AsyncStorage.removeItem(`${LETTER_LOGIC_SAVE_KEY_PREFIX}${puzzleId}`); // Or clear if it exists
+    return;
+  }
+
+  try {
+    const stateToSave: LetterLogicSavedState = {
+      puzzleId: puzzleId, // Or state.puzzle.id if available and consistent
+      foundWords: state.foundWords,
+      currentInput: state.currentInput,
+      score: state.score,
+    };
+    const jsonValue = JSON.stringify(stateToSave);
+    await AsyncStorage.setItem(`${LETTER_LOGIC_SAVE_KEY_PREFIX}${puzzleId}`, jsonValue);
+    // console.log(`Letter Logic state saved for puzzle: ${puzzleId}`);
+  } catch (e) {
+    console.error('Failed to save Letter Logic state.', e);
+  }
+};
+
+export const loadLetterLogicState = async (puzzleId: string, currentPuzzleData: LetterLogicPuzzle): Promise<LetterLogicState | null> => {
+  try {
+    const jsonValue = await AsyncStorage.getItem(`${LETTER_LOGIC_SAVE_KEY_PREFIX}${puzzleId}`);
+    if (jsonValue != null) {
+      const saved: LetterLogicSavedState = JSON.parse(jsonValue);
+
+      // Basic validation: if the saved puzzleId doesn't match, or if the puzzle structure fundamentally changed, invalidate.
+      // For this game, puzzleId matching should be enough, as words/letters define the puzzle.
+      if (saved.puzzleId !== puzzleId) {
+          console.warn(`Loaded Letter Logic state for puzzle ${saved.puzzleId} but expected ${puzzleId}. Discarding.`);
+          await AsyncStorage.removeItem(`${LETTER_LOGIC_SAVE_KEY_PREFIX}${puzzleId}`);
+          return null;
+      }
+
+      // console.log(`Loaded Letter Logic state for puzzle: ${puzzleId}`);
+      // Reconstruct the full state.
+      const rehydratedState: LetterLogicState = {
+        puzzle: currentPuzzleData, // Use the fresh puzzle data definition
+        foundWords: saved.foundWords || [],
+        currentInput: saved.currentInput || '',
+        score: saved.score || 0,
+        lastScoreChange: 0, // This is transient, not saved
+      };
+      // Ensure all words are still valid for the current puzzle (e.g. if puzzle definition changed)
+      rehydratedState.foundWords = rehydratedState.foundWords.filter(word => currentPuzzleData.validWords.includes(word));
+
+      return rehydratedState;
+    }
+  } catch (e) {
+    console.error('Failed to load Letter Logic state.', e);
+  }
+  return null; // No saved state or error
+};
