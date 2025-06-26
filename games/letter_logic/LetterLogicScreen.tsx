@@ -2,9 +2,9 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, Button, FlatList, TouchableOpacity, ActivityIndicator, AppState as RNAppState } from 'react-native';
 import {
     initializeLetterLogicState, submitWord, addLetterToInput, removeLastLetterFromInput, shuffleInputLetters,
-    getTodayLetterLogicPuzzle, getLetterLogicForDate
+    getTodayLetterLogicPuzzle, getLetterLogicForDate, saveLetterLogicState, loadLetterLogicState // Added save/load
 } from './logic';
-import { LetterLogicState } from './types';
+import { LetterLogicState, LetterLogicPuzzle } from './types'; // Added LetterLogicPuzzle
 import { finalizeGameSession, loadStatistics, StatsUpdateResult, updateGameStreak } from '../../store/statisticsService';
 import { GameKey } from '../../types/statistics';
 import aiSimulatorInstance from '../../ai/AISimulator';
@@ -41,9 +41,11 @@ const LetterLogicScreen: React.FC = () => {
 
   useEffect(() => {
     const attemptLoadState = async () => {
-      if (isFocused) {
+      if (isFocused && currentPuzzle) { // Ensure currentPuzzle is defined
         setIsLoadingState(true);
-        const loadedState: LetterLogicState | null = null;
+        // Use currentPuzzle.id for loading, assuming puzzles have unique IDs
+        const puzzleId = currentPuzzle.id || `date_${currentPuzzle.letters.join('')}`; // Fallback ID if no explicit id
+        const loadedState = await loadLetterLogicState(puzzleId, currentPuzzle);
         if (loadedState) {
           setGameState(loadedState);
           if (loadedState.foundWords.length !== currentPuzzle.validWords.length) setGameStartTime(Date.now()); else setGameStartTime(null);
@@ -55,25 +57,30 @@ const LetterLogicScreen: React.FC = () => {
       }
     };
     attemptLoadState();
-  }, [currentPuzzle.id, isFocused]);
+  }, [currentPuzzle, isFocused]); // Depend on currentPuzzle object itself
 
   useEffect(() => {
-    if (isLoadingState || !gameState) return;
+    if (isLoadingState || !gameState || !currentPuzzle) return; // Ensure currentPuzzle is defined
     const saveCurrentState = () => {
       if (gameState) {
-        const allWordsFound = gameState.foundWords.length === gameState.puzzle.validWords.length;
-        if (allWordsFound) {
-        } else if (gameState.foundWords.length > 0 || gameState.currentInput !== '' || gameState.score > 0) {
-        }
+        const puzzleId = currentPuzzle.id || `date_${currentPuzzle.letters.join('')}`; // Fallback ID
+        // saveLetterLogicState will handle logic for not saving completed/empty states
+        saveLetterLogicState(puzzleId, gameState);
       }
     };
     const subscription = RNAppState.addEventListener('change', nextAppState => {
       if (appState.current.match(/inactive|background/) && nextAppState === 'active') {}
-      else if (appState.current === 'active' && nextAppState.match(/inactive|background/)) saveCurrentState();
+      else if (appState.current === 'active' && nextAppState.match(/inactive|background/)) {
+        saveCurrentState();
+      }
       appState.current = nextAppState;
     });
-    return () => { subscription.remove(); saveCurrentState(); };
-  }, [gameState, currentPuzzle.id, isLoadingState]);
+    // Save on unmount as well
+    return () => {
+      subscription.remove();
+      saveCurrentState();
+    };
+  }, [gameState, currentPuzzle, isLoadingState]);
 
   useEffect(() => {
     if (!gameState || isLoadingState) return;

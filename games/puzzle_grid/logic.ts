@@ -3,8 +3,9 @@ import { puzzleGridArchive2025 } from './archive/2025';
 
 // Remove samplePuzzle and use a real puzzle from the archive
 export function getTodayPuzzleGrid(): PuzzleGridData {
-  // For demo, use the first puzzle; in production, select by date
-  return puzzleGridArchive2025[0];
+  const todayPuzzleData = getPuzzleGridForDate(new Date());
+  // Fallback to the first puzzle if today's isn't found
+  return todayPuzzleData || puzzleGridArchive2025[0];
 }
 
 function generateGridCells(puzzleData: PuzzleGridData): PuzzleGridCell[][] {
@@ -54,19 +55,21 @@ function generateGridCells(puzzleData: PuzzleGridData): PuzzleGridCell[][] {
   return cells;
 }
 
-const todayPuzzle = getTodayPuzzleGrid();
-todayPuzzle.cells = generateGridCells(todayPuzzle);
+// const todayPuzzle = getTodayPuzzleGrid(); // This will be evaluated at module load time
+// todayPuzzle.cells = generateGridCells(todayPuzzle); // This is problematic if app runs past midnight
 
+export function initializePuzzleGridState(puzzleData?: PuzzleGridData): PuzzleGridState {
+  const currentPuzzleData = puzzleData || getTodayPuzzleGrid(); // Get today's puzzle if none provided
 
-export function initializePuzzleGridState(puzzleData: PuzzleGridData = todayPuzzle): PuzzleGridState {
-  // In a real scenario, puzzleData would be loaded dynamically
-  const gridWithCorrectLetters = {
-      ...puzzleData,
-      cells: generateGridCells(puzzleData),
+  // Ensure cells are generated for the currentPuzzleData
+  // This assumes PuzzleGridData from archive might not have pre-generated cells.
+  const gridDataWithCells = {
+      ...currentPuzzleData,
+      cells: generateGridCells(currentPuzzleData),
   };
 
   return {
-    gridData: gridWithCorrectLetters,
+    gridData: gridDataWithCells,
     userLetters: {},
     isComplete: false,
     currentFocus: undefined, // Or set to the first word

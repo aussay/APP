@@ -1,3 +1,4 @@
+import 'react-native-gesture-handler';
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -9,7 +10,6 @@ import * as Notifications from 'expo-notifications';
 import { loadUserPreferences } from './services/userPreferencesService'; // Path assuming services is under src
 import aiSimulatorInstance from './ai/AISimulator'; // Path assuming ai is under src
 import { Colors } from './styles/theme'; // For loading indicator color
-import 'react-native-gesture-handler';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -27,7 +27,9 @@ export default function App() {
   const [initialGuideId, setInitialGuideId] = useState<string | null>(null);
 
   useEffect(() => {
-    initializeNotifications(); // Initialize notification permissions and listeners
+    // initializeNotifications(); // Initialize notification permissions and listeners // DIAGNOSTIC: Temporarily commented out to isolate crash
+    console.log('[DIAGNOSTIC] initializeNotifications() is currently commented out.');
+
 
     const checkPreferencesAndSetup = async () => {
       const prefs = await loadUserPreferences();

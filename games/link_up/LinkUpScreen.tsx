@@ -1,8 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Button, TouchableOpacity, ScrollView, ActivityIndicator, AppState as RNAppState, FlatList, SafeAreaView } from 'react-native';
 import { linkUpArchive2025 } from './archive/2025';
-import { getTodayLinkUpPuzzle, initializeLinkUpState, toggleItemSelection, submitGroup, isItemInFoundCategory, getLinkUpForDate, getLinkUpArchiveUpToDate } from './logic';
-import { LinkUpState, LinkUpItem } from './types';
+import {
+    getTodayLinkUpPuzzle, initializeLinkUpState, toggleItemSelection, submitGroup,
+    isItemInFoundCategory, getLinkUpForDate, getLinkUpArchiveUpToDate,
+    saveLinkUpState, loadLinkUpState // Added save/load
+} from './logic';
+import { LinkUpState, LinkUpItem, LinkUpPuzzle } from './types'; // Added LinkUpPuzzle
 import { finalizeGameSession, loadStatistics, StatsUpdateResult, updateGameStreak } from '../../store/statisticsService';
 import { GameKey } from '../../types/statistics';
 import aiSimulatorInstance from '../../ai/AISimulator';
@@ -44,45 +48,58 @@ const LinkUpScreen: React.FC = () => {
 
   useEffect(() => {
     const attemptLoadState = async () => {
-      if (isFocused) {
+      if (isFocused && currentPuzzle) { // Ensure currentPuzzle is defined
         setIsLoadingState(true);
-        const loadedState = await getLinkUpForDate(currentPuzzleId);
+        const puzzleIdToLoad = currentPuzzle.id || `date_${currentPuzzle.items.length}`; // Use currentPuzzle.id or a fallback
+        const loadedState = await loadLinkUpState(puzzleIdToLoad, currentPuzzle);
         if (loadedState) {
           setGameState(loadedState);
           if (!loadedState.isGameOver) setGameStartTime(Date.now()); else setGameStartTime(null);
         } else {
-          const newGame = initializeLinkUpState(getTodayLinkUpPuzzle());
+          const newGame = initializeLinkUpState(currentPuzzle);
           setGameState(newGame); setGameStartTime(Date.now());
         }
         setIsLoadingState(false);
       }
     };
     attemptLoadState();
-  }, [currentPuzzleId, isFocused]);
+  }, [currentPuzzle, isFocused]); // Depend on currentPuzzle object
 
   useEffect(() => {
-    // When archive selection changes, update the puzzle
+    // When archive selection changes, update the currentPuzzle state
+    // This will then trigger the attemptLoadState effect above.
     if (selectedArchiveIndex !== null) {
-      const archivePuzzle = linkUpArchive2025[selectedArchiveIndex];
-      if (archivePuzzle) setCurrentPuzzle(archivePuzzle);
+      const archivePuzzleData = getLinkUpForDate(new Date(2025, 0, 1 + selectedArchiveIndex));
+      if (archivePuzzleData) {
+        setCurrentPuzzle(archivePuzzleData);
+      }
     } else {
+      // Default to today's puzzle if no archive is selected or on initial load
       setCurrentPuzzle(getTodayLinkUpPuzzle());
     }
   }, [selectedArchiveIndex]);
 
   useEffect(() => {
-    if (isLoadingState || !gameState) return;
+    if (isLoadingState || !gameState || !currentPuzzle) return; // Ensure currentPuzzle is defined
     const saveCurrentState = () => {
-      if (gameState && !gameState.isGameOver) {/* Save game state logic if needed */ }
-      else if (gameState && gameState.isGameOver) {/* Clear saved state logic if needed */ }
+      if (gameState) {
+        const puzzleIdToSave = currentPuzzle.id || `date_${currentPuzzle.items.length}`;
+        // saveLinkUpState handles logic for not saving completed/empty states
+        saveLinkUpState(puzzleIdToSave, gameState);
+      }
     };
     const subscription = RNAppState.addEventListener('change', nextAppState => {
       if (appState.current.match(/inactive|background/) && nextAppState === 'active') {}
-      else if (appState.current === 'active' && nextAppState.match(/inactive|background/)) saveCurrentState();
+      else if (appState.current === 'active' && nextAppState.match(/inactive|background/)) {
+        saveCurrentState();
+      }
       appState.current = nextAppState;
     });
-    return () => { subscription.remove(); saveCurrentState(); };
-  }, [gameState, currentPuzzleId, isLoadingState]);
+    return () => {
+      subscription.remove();
+      saveCurrentState();
+    };
+  }, [gameState, currentPuzzle, isLoadingState]);
 
   useEffect(() => {
     if (!gameState || isLoadingState) return;
